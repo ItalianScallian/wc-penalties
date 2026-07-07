@@ -1,0 +1,182 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Cup penalties — kick by kick</title>
+<style>
+  :root {
+    /* V5 sports-annual ledger palette (light) */
+    --bg: #f2ecdd;
+    --ink: #1d2f4e;
+    --sub: #4a5670;
+    --muted: #7a7663;
+    --rule: #d9d2bd;
+    --miss: #c94f2e;
+    --tip-bg: #1d2f4e;
+    --tip-ink: #f2ecdd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#101312; --ink:#e9ece8; --sub:#b6bcb6; --muted:#7d857e; --rule:#232725; --miss:#e05d4b; --tip-bg:#e9ece8; --tip-ink:#101312; }
+  }
+  :root[data-theme="dark"]  { --bg:#101312; --ink:#e9ece8; --sub:#b6bcb6; --muted:#7d857e; --rule:#232725; --miss:#e05d4b; --tip-bg:#e9ece8; --tip-ink:#101312; }
+  :root[data-theme="light"] { --bg:#f2ecdd; --ink:#1d2f4e; --sub:#4a5670; --muted:#7a7663; --rule:#d9d2bd; --miss:#c94f2e; --tip-bg:#1d2f4e; --tip-ink:#f2ecdd; }
+
+  body {
+    margin: 0; padding: 48px 24px 72px;
+    background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; justify-content: center;
+  }
+  .wrap { width: min(1280px, 100%); }
+  h1 { font-size: clamp(28px, 4vw, 44px); font-weight: 800; margin: 0 0 8px; text-wrap: balance; }
+  .lede { color: var(--sub); font-size: 17px; margin: 0 0 40px; text-wrap: pretty; }
+  .lede .k-goal, .lede .k-miss { display: inline-block; vertical-align: -2px; }
+
+  /* one shared grid: each position is a single row spanning both columns,
+     so in-game and shootout blocks align vertically at every position */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; column-gap: 56px; row-gap: 30px; align-items: start; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; row-gap: 24px; } .cols > * { grid-column: 1 !important; grid-row: auto !important; } }
+
+  .col-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid var(--ink); padding-bottom: 8px; margin-bottom: 24px;
+  }
+  .col-head h2 { font-size: 17px; font-weight: 800; margin: 0; }
+  .col-head .tot { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  .pos { margin-bottom: 0; }
+  .pos-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .pos-head .name { font-size: 20px; font-weight: 800; }
+  .pos-head .rate { font-variant-numeric: tabular-nums; }
+  .pos-head .rate b { font-size: 26px; font-weight: 800; }
+  .pos-head .rate .n { color: var(--muted); font-size: 15px; margin-left: 8px; }
+  .pos-head .rate.worst b { color: var(--miss); }
+
+  .kicks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .kick {
+    position: relative; width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: default;
+  }
+  .kick:focus-visible { outline: 2px solid var(--sub); outline-offset: 2px; border-radius: 50%; }
+  .k-goal, .k-ball { width: 17px; height: 17px; display: block; }
+  .k-miss { width: 15px; height: 15px; position: relative; }
+  .k-miss .k-ball { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); opacity: .22; }
+  .k-miss::before, .k-miss::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 17px; height: 3px; background: var(--miss); border-radius: 2px;
+  }
+  .k-miss::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .k-miss::after  { transform: translate(-50%,-50%) rotate(-45deg); }
+  .kick:hover .k-goal, .kick:focus-visible .k-goal { outline: 3px solid var(--sub); outline-offset: 1px; border-radius: 50%; }
+
+  .kick .tip {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: var(--tip-bg); color: var(--tip-ink);
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    padding: 6px 10px; border-radius: 4px;
+    pointer-events: none; opacity: 0; transition: opacity 120ms ease-out;
+    z-index: 10;
+  }
+  .kick:hover .tip, .kick:focus-visible .tip { opacity: 1; }
+
+  .foot { border-top: 1px solid var(--rule); margin-top: 32px; padding-top: 16px; color: var(--muted); font-size: 13px; text-wrap: pretty; }
+  .foot .kick { vertical-align: -3px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ball" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10.6" fill="#fdfdfb" stroke="#15181c" stroke-width="1.6"/>
+    <!-- centre pentagon -->
+    <path d="M12 7.2 L16.2 10.3 L14.6 15.2 L9.4 15.2 L7.8 10.3 Z" fill="#15181c"/>
+    <!-- spokes to rim -->
+    <g stroke="#15181c" stroke-width="1.3" stroke-linecap="round">
+      <line x1="12" y1="7.2" x2="12" y2="2.4"/>
+      <line x1="16.2" y1="10.3" x2="20.8" y2="8.6"/>
+      <line x1="14.6" y1="15.2" x2="17.6" y2="19.4"/>
+      <line x1="9.4"  y1="15.2" x2="6.4"  y2="19.4"/>
+      <line x1="7.8"  y1="10.3" x2="3.2"  y2="8.6"/>
+    </g>
+  </symbol>
+</svg>
+<div class="wrap">
+  <h1>191 World Cup penalties, one by one</h1>
+  <p class="lede">Men’s World Cups 2018 · 2022 · 2026 (through July 7)</p>
+  <div class="cols" id="cols"></div>
+  <div class="foot">
+    <div>A filled ball
+    <span class="kick" style="width:15px;height:15px"><span class="k-goal"><svg class="k-ball"><use href="#ball"/></svg></span></span> is a goal, a cross
+    <span class="kick" style="width:15px;height:15px"><span class="k-miss"><svg class="k-ball"><use href="#ball"/></svg></span></span> is a miss. Hover any kick for the detail.</div>
+  </div>
+</div>
+
+<script>
+// Per-kick data: 180 kicks from Wyscout (wy_events, WC 2018/2022/2026) + 11 kicks
+// from July 7 (Argentina-Egypt, Colombia-Switzerland) added manually pending ingestion.
+window.KICKS = [{"ctx":"ig","bucket":"CB","name":"A. Granqvist","team":"Sweden","opp":"Mexico","year":2018,"when":61,"goal":1},{"ctx":"ig","bucket":"CB","name":"A. Granqvist","team":"Sweden","opp":"Korea Republic","year":2018,"when":64,"goal":1},{"ctx":"ig","bucket":"FB","name":"V. Moses","team":"Nigeria","opp":"Argentina","year":2018,"when":50,"goal":1},{"ctx":"ig","bucket":"FB","name":"A. Davies","team":"Canada","opp":"Belgium","year":2022,"when":10,"goal":0},{"ctx":"ig","bucket":"CM","name":"L. Messi","team":"Argentina","opp":"Iceland","year":2018,"when":63,"goal":0},{"ctx":"ig","bucket":"CM","name":"E. Hazard","team":"Belgium","opp":"Tunisia","year":2018,"when":6,"goal":1},{"ctx":"ig","bucket":"CM","name":"S. Kagawa","team":"Japan","opp":"Colombia","year":2018,"when":5,"goal":1},{"ctx":"ig","bucket":"CM","name":"L. Modrić","team":"Croatia","opp":"Denmark","year":2018,"when":115,"goal":0},{"ctx":"ig","bucket":"CM","name":"L. Modrić","team":"Croatia","opp":"Nigeria","year":2018,"when":70,"goal":1},{"ctx":"ig","bucket":"CM","name":"M. Jedinak","team":"Australia","opp":"Denmark","year":2018,"when":37,"goal":1},{"ctx":"ig","bucket":"CM","name":"M. Jedinak","team":"Australia","opp":"France","year":2018,"when":61,"goal":1},{"ctx":"ig","bucket":"CM","name":"A. Griezmann","team":"France","opp":"Croatia","year":2018,"when":37,"goal":1},{"ctx":"ig","bucket":"CM","name":"K. Ansarifard","team":"Iran","opp":"Portugal","year":2018,"when":92,"goal":1},{"ctx":"ig","bucket":"CM","name":"C. Vela","team":"Mexico","opp":"Korea Republic","year":2018,"when":25,"goal":1},{"ctx":"ig","bucket":"CM","name":"G. Sigurdsson","team":"Iceland","opp":"Nigeria","year":2018,"when":82,"goal":0},{"ctx":"ig","bucket":"CM","name":"C. Cueva","team":"Peru","opp":"Denmark","year":2018,"when":45,"goal":0},{"ctx":"ig","bucket":"CM","name":"Salman Al Faraj","team":"Saudi Arabia","opp":"Egypt","year":2018,"when":50,"goal":1},{"ctx":"ig","bucket":"CM","name":"F. Sassi","team":"Tunisia","opp":"England","year":2018,"when":34,"goal":1},{"ctx":"ig","bucket":"CM","name":"Neymar","team":"Brazil","opp":"Korea Republic","year":2022,"when":12,"goal":1},{"ctx":"ig","bucket":"CM","name":"I. Sarr","team":"Senegal","opp":"Ecuador","year":2022,"when":43,"goal":1},{"ctx":"ig","bucket":"CM","name":"İ. Gündoğan","team":"Germany","opp":"Japan","year":2022,"when":32,"goal":1},{"ctx":"ig","bucket":"CM","name":"A. Ayew","team":"Ghana","opp":"Uruguay","year":2022,"when":20,"goal":0},{"ctx":"ig","bucket":"CM","name":"Y. Tielemans","team":"Belgium","opp":"Senegal","year":2026,"when":124,"goal":1},{"ctx":"ig","bucket":"CM","name":"Bruno Guimarães","team":"Brazil","opp":"Norway","year":2026,"when":13,"goal":0},{"ctx":"ig","bucket":"CM","name":"T. Mokoena","team":"South Africa","opp":"Czechia","year":2026,"when":82,"goal":1},{"ctx":"ig","bucket":"CM","name":"G. Xhaka","team":"Switzerland","opp":"Bosnia-Herzegovina","year":2026,"when":96,"goal":1},{"ctx":"ig","bucket":"W","name":"B. Ruiz","team":"Costa Rica","opp":"Switzerland","year":2018,"when":92,"goal":0},{"ctx":"ig","bucket":"W","name":"L. Messi","team":"Argentina","opp":"France","year":2022,"when":22,"goal":1},{"ctx":"ig","bucket":"W","name":"Salem Al Dawsari","team":"Saudi Arabia","opp":"Poland","year":2022,"when":45,"goal":0},{"ctx":"ig","bucket":"W","name":"Bruno Fernandes","team":"Portugal","opp":"Uruguay","year":2022,"when":92,"goal":1},{"ctx":"ig","bucket":"W","name":"Ferrán Torres","team":"Spain","opp":"Costa Rica","year":2022,"when":30,"goal":1},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"Colombia","year":2018,"when":56,"goal":1},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"Panama","year":2018,"when":21,"goal":1},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"Panama","year":2018,"when":45,"goal":1},{"ctx":"ig","bucket":"ST","name":"A. Griezmann","team":"France","opp":"Argentina","year":2018,"when":12,"goal":1},{"ctx":"ig","bucket":"ST","name":"A. Griezmann","team":"France","opp":"Australia","year":2018,"when":57,"goal":1},{"ctx":"ig","bucket":"ST","name":"G. Sigurðsson","team":"Iceland","opp":"Croatia","year":2018,"when":75,"goal":1},{"ctx":"ig","bucket":"ST","name":"Cristiano Ronaldo","team":"Portugal","opp":"Iran","year":2018,"when":52,"goal":0},{"ctx":"ig","bucket":"ST","name":"Cristiano Ronaldo","team":"Portugal","opp":"Spain","year":2018,"when":3,"goal":1},{"ctx":"ig","bucket":"ST","name":"Marwan Mohsen","team":"Egypt","opp":"Russia","year":2018,"when":72,"goal":1},{"ctx":"ig","bucket":"ST","name":"Fahad Al Muwallad","team":"Saudi Arabia","opp":"Egypt","year":2018,"when":40,"goal":0},{"ctx":"ig","bucket":"ST","name":"A. Dzyuba","team":"Russia","opp":"Spain","year":2018,"when":40,"goal":1},{"ctx":"ig","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Croatia","year":2022,"when":33,"goal":1},{"ctx":"ig","bucket":"ST","name":"K. Mbappé","team":"France","opp":"Argentina","year":2022,"when":79,"goal":1},{"ctx":"ig","bucket":"ST","name":"K. Mbappé","team":"France","opp":"Argentina","year":2022,"when":117,"goal":1},{"ctx":"ig","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Saudi Arabia","year":2022,"when":9,"goal":1},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"France","year":2022,"when":53,"goal":1},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"France","year":2022,"when":83,"goal":0},{"ctx":"ig","bucket":"ST","name":"M. Taremi","team":"Iran","opp":"England","year":2022,"when":102,"goal":1},{"ctx":"ig","bucket":"ST","name":"R. Lewandowski","team":"Poland","opp":"France","year":2022,"when":99,"goal":1},{"ctx":"ig","bucket":"ST","name":"R. Lewandowski","team":"Poland","opp":"Mexico","year":2022,"when":57,"goal":0},{"ctx":"ig","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Netherlands","year":2022,"when":72,"goal":1},{"ctx":"ig","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Poland","year":2022,"when":38,"goal":0},{"ctx":"ig","bucket":"ST","name":"Cristiano Ronaldo","team":"Portugal","opp":"Ghana","year":2022,"when":64,"goal":1},{"ctx":"ig","bucket":"ST","name":"Enner Valencia","team":"Ecuador","opp":"Qatar","year":2022,"when":15,"goal":1},{"ctx":"ig","bucket":"ST","name":"G. Bale","team":"Wales","opp":"United States","year":2022,"when":81,"goal":1},{"ctx":"ig","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Austria","year":2026,"when":8,"goal":0},{"ctx":"ig","bucket":"ST","name":"M. Arnautović","team":"Austria","opp":"Jordan","year":2026,"when":101,"goal":1},{"ctx":"ig","bucket":"ST","name":"Neymar","team":"Brazil","opp":"Norway","year":2026,"when":99,"goal":1},{"ctx":"ig","bucket":"ST","name":"Y. Wissa","team":"Congo DR","opp":"Uzbekistan","year":2026,"when":67,"goal":1},{"ctx":"ig","bucket":"ST","name":"M. Taremi","team":"Iran","opp":"Egypt","year":2026,"when":10,"goal":0},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"Croatia","year":2026,"when":11,"goal":1},{"ctx":"ig","bucket":"ST","name":"K. Havertz","team":"Germany","opp":"Curaçao","year":2026,"when":49,"goal":1},{"ctx":"ig","bucket":"ST","name":"L. Martínez","team":"Argentina","opp":"Jordan","year":2026,"when":30,"goal":1},{"ctx":"ig","bucket":"ST","name":"H. Kane","team":"England","opp":"Mexico","year":2026,"when":59,"goal":1},{"ctx":"ig","bucket":"ST","name":"R. Jiménez","team":"Mexico","opp":"England","year":2026,"when":68,"goal":1},{"ctx":"ig","bucket":"ST","name":"J. Strand Larsen","team":"Norway","opp":"France","year":2026,"when":49,"goal":0},{"ctx":"ig","bucket":"ST","name":"K. Mbappé","team":"France","opp":"Paraguay","year":2026,"when":69,"goal":1},{"ctx":"ig","bucket":"ST","name":"Cristiano Ronaldo","team":"Portugal","opp":"Croatia","year":2026,"when":67,"goal":1},{"ctx":"ig","bucket":"ST","name":"B. Embolo","team":"Switzerland","opp":"Qatar","year":2026,"when":16,"goal":1},{"ctx":"ig","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Egypt","year":2026,"when":null,"goal":0},{"ctx":"so","bucket":"CB","name":"E. Dier","team":"England","opp":"Colombia","year":2018,"goal":1},{"ctx":"so","bucket":"CB","name":"S. Kjær","team":"Denmark","opp":"Croatia","year":2018,"goal":1},{"ctx":"so","bucket":"CB","name":"S. Ignashevich","team":"Russia","opp":"Croatia","year":2018,"goal":1},{"ctx":"so","bucket":"CB","name":"Gerard Piqué","team":"Spain","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"CB","name":"S. Ignashevich","team":"Russia","opp":"Spain","year":2018,"goal":1},{"ctx":"so","bucket":"CB","name":"Sergio Ramos","team":"Spain","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"CB","name":"Marquinhos","team":"Brazil","opp":"Croatia","year":2022,"goal":0},{"ctx":"so","bucket":"CB","name":"M. Yoshida","team":"Japan","opp":"Croatia","year":2022,"goal":0},{"ctx":"so","bucket":"CB","name":"B. Benoun","team":"Morocco","opp":"Spain","year":2022,"goal":0},{"ctx":"so","bucket":"CB","name":"V. van Dijk","team":"Netherlands","opp":"Argentina","year":2022,"goal":0},{"ctx":"so","bucket":"CB","name":"L. Paredes","team":"Argentina","opp":"Netherlands","year":2022,"goal":1},{"ctx":"so","bucket":"CB","name":"H. Souttar","team":"Australia","opp":"Egypt","year":2026,"goal":0},{"ctx":"so","bucket":"CB","name":"L. Herrington","team":"Australia","opp":"Egypt","year":2026,"goal":0},{"ctx":"so","bucket":"CB","name":"Hossam Abdelsalam","team":"Egypt","opp":"Australia","year":2026,"goal":1},{"ctx":"so","bucket":"CB","name":"G. Gómez","team":"Paraguay","opp":"Germany","year":2026,"goal":1},{"ctx":"so","bucket":"CB","name":"F. Balbuena","team":"Paraguay","opp":"Germany","year":2026,"goal":0},{"ctx":"so","bucket":"CB","name":"J. Tah","team":"Germany","opp":"Paraguay","year":2026,"goal":0},{"ctx":"so","bucket":"CB","name":"T. Koopmeiners","team":"Netherlands","opp":"Morocco","year":2026,"goal":1},{"ctx":"so","bucket":"CB","name":"D. Sánchez","team":"Colombia","opp":"Switzerland","year":2026,"goal":0},{"ctx":"so","bucket":"CB","name":"M. Akanji","team":"Switzerland","opp":"Colombia","year":2026,"goal":0},{"ctx":"so","bucket":"FB","name":"K. Trippier","team":"England","opp":"Colombia","year":2018,"goal":1},{"ctx":"so","bucket":"FB","name":"J. Pivarić","team":"Croatia","opp":"Denmark","year":2018,"goal":0},{"ctx":"so","bucket":"FB","name":"Mário Fernandes","team":"Russia","opp":"Croatia","year":2018,"goal":0},{"ctx":"so","bucket":"FB","name":"D. Vida","team":"Croatia","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"FB","name":"G. Montiel","team":"Argentina","opp":"France","year":2022,"goal":1},{"ctx":"so","bucket":"FB","name":"K. Mitoma","team":"Japan","opp":"Croatia","year":2022,"goal":0},{"ctx":"so","bucket":"FB","name":"A. Hakimi","team":"Morocco","opp":"Spain","year":2022,"goal":1},{"ctx":"so","bucket":"FB","name":"G. Montiel","team":"Argentina","opp":"Netherlands","year":2022,"goal":1},{"ctx":"so","bucket":"FB","name":"Rami Rabia","team":"Egypt","opp":"Australia","year":2026,"goal":1},{"ctx":"so","bucket":"FB","name":"J. Canale","team":"Paraguay","opp":"Germany","year":2026,"goal":1},{"ctx":"so","bucket":"FB","name":"A. Hakimi","team":"Morocco","opp":"Netherlands","year":2026,"goal":0},{"ctx":"so","bucket":"CM","name":"M. Rashford","team":"England","opp":"Colombia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"J. Henderson","team":"England","opp":"Colombia","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"M. Uribe","team":"Colombia","opp":"England","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"C. Eriksen","team":"Denmark","opp":"Croatia","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"M. Badelj","team":"Croatia","opp":"Denmark","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"A. Kramarić","team":"Croatia","opp":"Denmark","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"M. Krohn-Dehli","team":"Denmark","opp":"Croatia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"L. Modrić","team":"Croatia","opp":"Denmark","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"L. Schöne","team":"Denmark","opp":"Croatia","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"I. Rakitić","team":"Croatia","opp":"Denmark","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"M. Brozović","team":"Croatia","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"A. Dzagoev","team":"Russia","opp":"Croatia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"M. Kovačić","team":"Croatia","opp":"Russia","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"L. Modrić","team":"Croatia","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"I. Rakitić","team":"Croatia","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"Andrés Iniesta","team":"Spain","opp":"Russia","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"Koke","team":"Spain","opp":"Russia","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"A. Golovin","team":"Russia","opp":"Spain","year":2018,"goal":1},{"ctx":"so","bucket":"CM","name":"Iago Aspas","team":"Spain","opp":"Russia","year":2018,"goal":0},{"ctx":"so","bucket":"CM","name":"P. Dybala","team":"Argentina","opp":"France","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"A. Tchouaméni","team":"France","opp":"Argentina","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"L. Paredes","team":"Argentina","opp":"France","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"N. Vlašić","team":"Croatia","opp":"Brazil","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"Rodrygo","team":"Brazil","opp":"Croatia","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"L. Majer","team":"Croatia","opp":"Brazil","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"Casemiro","team":"Brazil","opp":"Croatia","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"L. Modrić","team":"Croatia","opp":"Brazil","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"N. Vlašić","team":"Croatia","opp":"Japan","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"M. Brozović","team":"Croatia","opp":"Japan","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"A. Sabiri","team":"Morocco","opp":"Spain","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"Pablo Sarabia","team":"Spain","opp":"Morocco","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"Carlos Soler","team":"Spain","opp":"Morocco","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"Sergio Busquets","team":"Spain","opp":"Morocco","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"S. Berghuis","team":"Netherlands","opp":"Argentina","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"T. Koopmeiners","team":"Netherlands","opp":"Argentina","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"W. Weghorst","team":"Netherlands","opp":"Argentina","year":2022,"goal":1},{"ctx":"so","bucket":"CM","name":"E. Fernández","team":"Argentina","opp":"Netherlands","year":2022,"goal":0},{"ctx":"so","bucket":"CM","name":"Mahmoud Saber","team":"Egypt","opp":"Australia","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"J. Irvine","team":"Australia","opp":"Egypt","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"A. Mabil","team":"Australia","opp":"Egypt","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"J. Kimmich","team":"Germany","opp":"Paraguay","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"N. El Aynaoui","team":"Morocco","opp":"Netherlands","year":2026,"goal":0},{"ctx":"so","bucket":"CM","name":"C. Talbi","team":"Morocco","opp":"Netherlands","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"Q. Timber","team":"Netherlands","opp":"Morocco","year":2026,"goal":0},{"ctx":"so","bucket":"CM","name":"I. Saibari","team":"Morocco","opp":"Netherlands","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"J. Quintero","team":"Colombia","opp":"Switzerland","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"G. Xhaka","team":"Switzerland","opp":"Colombia","year":2026,"goal":1},{"ctx":"so","bucket":"CM","name":"R. Vargas","team":"Switzerland","opp":"Colombia","year":2026,"goal":1},{"ctx":"so","bucket":"W","name":"J. Cuadrado","team":"Colombia","opp":"England","year":2018,"goal":1},{"ctx":"so","bucket":"W","name":"L. Muriel","team":"Colombia","opp":"England","year":2018,"goal":1},{"ctx":"so","bucket":"W","name":"D. Kuzyaev","team":"Russia","opp":"Croatia","year":2018,"goal":1},{"ctx":"so","bucket":"W","name":"D. Cheryshev","team":"Russia","opp":"Spain","year":2018,"goal":1},{"ctx":"so","bucket":"W","name":"K. Coman","team":"France","opp":"Argentina","year":2022,"goal":0},{"ctx":"so","bucket":"W","name":"M. Oršić","team":"Croatia","opp":"Brazil","year":2022,"goal":1},{"ctx":"so","bucket":"W","name":"T. Minamino","team":"Japan","opp":"Croatia","year":2022,"goal":0},{"ctx":"so","bucket":"W","name":"M. Pašalić","team":"Croatia","opp":"Japan","year":2022,"goal":1},{"ctx":"so","bucket":"W","name":"H. Ziyech","team":"Morocco","opp":"Spain","year":2022,"goal":1},{"ctx":"so","bucket":"W","name":"J. Musiala","team":"Germany","opp":"Paraguay","year":2026,"goal":1},{"ctx":"so","bucket":"W","name":"M. Galarza","team":"Paraguay","opp":"Germany","year":2026,"goal":1},{"ctx":"so","bucket":"W","name":"N. Amiri","team":"Germany","opp":"Paraguay","year":2026,"goal":1},{"ctx":"so","bucket":"W","name":"J. Kluivert","team":"Netherlands","opp":"Morocco","year":2026,"goal":0},{"ctx":"so","bucket":"W","name":"C. Summerville","team":"Netherlands","opp":"Morocco","year":2026,"goal":0},{"ctx":"so","bucket":"W","name":"J. Campaz","team":"Colombia","opp":"Switzerland","year":2026,"goal":1},{"ctx":"so","bucket":"W","name":"L. Díaz","team":"Colombia","opp":"Switzerland","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"R. Falcao","team":"Colombia","opp":"England","year":2018,"goal":1},{"ctx":"so","bucket":"ST","name":"H. Kane","team":"England","opp":"Colombia","year":2018,"goal":1},{"ctx":"so","bucket":"ST","name":"C. Bacca","team":"Colombia","opp":"England","year":2018,"goal":0},{"ctx":"so","bucket":"ST","name":"N. Jørgensen","team":"Denmark","opp":"Croatia","year":2018,"goal":0},{"ctx":"so","bucket":"ST","name":"F. Smolov","team":"Russia","opp":"Croatia","year":2018,"goal":0},{"ctx":"so","bucket":"ST","name":"F. Smolov","team":"Russia","opp":"Spain","year":2018,"goal":1},{"ctx":"so","bucket":"ST","name":"K. Mbappé","team":"France","opp":"Argentina","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"France","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"R. Kolo Muani","team":"France","opp":"Argentina","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"Pedro","team":"Brazil","opp":"Croatia","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"T. Asano","team":"Japan","opp":"Croatia","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"M. Livaja","team":"Croatia","opp":"Japan","year":2022,"goal":0},{"ctx":"so","bucket":"ST","name":"L. Messi","team":"Argentina","opp":"Netherlands","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"L. de Jong","team":"Netherlands","opp":"Argentina","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"L. Martínez","team":"Argentina","opp":"Netherlands","year":2022,"goal":1},{"ctx":"so","bucket":"ST","name":"Mohamed Salah","team":"Egypt","opp":"Australia","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"K. Havertz","team":"Germany","opp":"Paraguay","year":2026,"goal":0},{"ctx":"so","bucket":"ST","name":"Maurício","team":"Paraguay","opp":"Germany","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"N. Woltemade","team":"Germany","opp":"Paraguay","year":2026,"goal":0},{"ctx":"so","bucket":"ST","name":"A. Sanabria","team":"Paraguay","opp":"Germany","year":2026,"goal":0},{"ctx":"so","bucket":"ST","name":"S. Rahimi","team":"Morocco","opp":"Netherlands","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"W. Weghorst","team":"Netherlands","opp":"Morocco","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"Z. Amdouni","team":"Switzerland","opp":"Colombia","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"C. Itten","team":"Switzerland","opp":"Colombia","year":2026,"goal":1},{"ctx":"so","bucket":"ST","name":"J. Hernández","team":"Colombia","opp":"Switzerland","year":2026,"goal":0}];
+
+const ORDER = ['ST','W','CM','FB','CB'];
+const LABELS = { ST:'Strikers', W:'Wingers', CM:'Midfielders', FB:'Full-backs', CB:'Centre-backs' };
+const CTX = [
+  { key:'ig', title:'In open play', word:'in-game penalty', tot:[53,71],
+    rows:{ ST:[31,40], W:[3,5], CM:[16,22], FB:[1,2], CB:[2,2] } },
+  { key:'so', title:'In shootouts', word:'shootout kick', tot:[77,120],
+    rows:{ ST:[17,25], W:[12,16], CM:[31,48], FB:[7,11], CB:[10,20] } },
+];
+const WORST = { so:'CB' };
+
+const cols = document.getElementById('cols');
+// headers: one per column, same grid row
+CTX.forEach((ctx, ci) => {
+  const pct = (ctx.tot[0]/ctx.tot[1]*100).toFixed(0);
+  const head = document.createElement('div');
+  head.className = 'col-head';
+  head.style.gridColumn = String(ci+1);
+  head.style.gridRow = '1';
+  head.innerHTML = `<h2>${ctx.title.toUpperCase()}</h2>
+    <span class="tot">${ctx.tot[0]}/${ctx.tot[1]} scored · ${pct}%</span>`;
+  cols.appendChild(head);
+});
+// position blocks: each position occupies one shared grid row across both columns
+ORDER.forEach((p, ri) => {
+  CTX.forEach((ctx, ci) => {
+    const [g,a] = ctx.rows[p];
+    const v = (g/a*100).toFixed(0);
+    const pos = document.createElement('div');
+    pos.className = 'pos';
+    pos.style.gridColumn = String(ci+1);
+    pos.style.gridRow = String(ri+2);
+    const worst = WORST[ctx.key] === p ? ' worst' : '';
+    pos.innerHTML = `<div class="pos-head"><span class="name">${LABELS[p]}</span>
+      <span class="rate${worst}"><b>${v}%</b><span class="n">${g}/${a}</span></span></div>`;
+    const grid = document.createElement('div');
+    grid.className = 'kicks';
+    // kicks are sorted scored-first to match dot order (goals then misses),
+    // then year asc, then minute asc (when may be null on shootout rows)
+    const kicksData = (window.KICKS || [])
+      .filter(k => k.ctx === ctx.key && k.bucket === p)
+      .sort((x, y) =>
+        (y.goal - x.goal) ||
+        (x.year - y.year) ||
+        ((x.when ?? Infinity) - (y.when ?? Infinity)));
+    for (let k = 0; k < a; k++) {
+      const ok = k < g;
+      const kick = document.createElement('span');
+      kick.className = 'kick';
+      kick.tabIndex = 0;
+      const d = kicksData.length === a ? kicksData[k] : null;
+      // shootout `when` is a raw event second, never display it; only show the minute in open play
+      const showMin = d && d.ctx === 'ig' && d.when != null;
+      const label = d
+        ? `${d.goal ? 'Scored' : 'Missed'} — ${d.name} (${d.team} v ${d.opp}, ${d.year}${showMin ? ', ' + d.when + '′' : ''})`
+        : `${ok ? 'Scored' : 'Missed'} — ${LABELS[p]} ${ctx.word} ${k+1} of ${a}`;
+      kick.setAttribute('aria-label', label);
+      const ballSvg = '<svg class="k-ball"><use href="#ball"/></svg>';
+      kick.innerHTML = ok
+        ? `<span class="k-goal">${ballSvg}</span><span class="tip">${label}</span>`
+        : `<span class="k-miss">${ballSvg}</span><span class="tip">${label}</span>`;
+      grid.appendChild(kick);
+    }
+    pos.appendChild(grid);
+    cols.appendChild(pos);
+  });
+});
+</script>
+</html>
